@@ -33,6 +33,7 @@ export type StepApiOutputType = {
   lines: XmlLine[];
   endName?: string;
   stateChange?: Record<string, unknown>;
+  gistMemory?: import('@/app/lib/gist-memory').GistMemory;
 };
 
 export type StepApiInputType = {

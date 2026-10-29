@@ -29,6 +29,8 @@ import Start from './Screens/Start';
 import ShareModal from './Share';
 import Stage from './Stage';
 import GameStatusPanel from './GameStatusPanel';
+import GistMemoryPanel from './GistMemoryPanel';
+import { normalizeGistMemory } from '@/app/lib/gist-memory';
 import { normalizeGameState } from '@/app/lib/narrative-state';
 
 export default function Game({ actions }: { actions?: React.ReactNode }) {
@@ -46,6 +48,7 @@ export default function Game({ actions }: { actions?: React.ReactNode }) {
     outdated,
   } = useProject();
   const [showOutdatedWarning, setShowOutdatedWarning] = useState(mode === 'edit');
+  const [showGistMemory, setShowGistMemory] = useState(false);
   const currentLine = storyState.currentLine;
   const status = currentLine.metadata?.status;
 
@@ -63,6 +66,8 @@ export default function Game({ actions }: { actions?: React.ReactNode }) {
   const visibleStateLine = storyState.lines.slice(0, currentLineIndex + 1).reverse().find((line) => line.metadata?.narrativeState);
   const initialLocation = currentPlace?.name ?? activeProject.cartridge.places.find((place) => place.uuid === getScene(activeProject, activeProject.settings.startingSceneId).placeId)?.name ?? '알 수 없음';
   const visibleGameState = normalizeGameState(visibleStateLine?.metadata?.narrativeState ?? activeProject.settings.initialGameState, initialLocation);
+  const visibleGistLine = storyState.lines.slice(0, currentLineIndex + 1).reverse().find((line) => line.metadata?.gistMemory);
+  const visibleGistMemory = normalizeGistMemory(visibleGistLine?.metadata?.gistMemory);
   const currentBackgroundSprite = getPlaceSprite(
     currentPlaythrough?.projectSnapshot ?? project,
     scene.placeId,
@@ -103,6 +108,19 @@ export default function Game({ actions }: { actions?: React.ReactNode }) {
         )}
         <div className="relative w-full justify-center">
           {currentPlaythrough && <GameStatusPanel state={visibleGameState} />}
+          {currentPlaythrough && (
+            <button
+              type="button"
+              onClick={() => setShowGistMemory(true)}
+              className="absolute right-3 top-32 z-[20] rounded-lg border border-white/20 bg-slate-950/90 px-3 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur-md hover:bg-slate-800 sm:top-32"
+              aria-label="Gist Memory 요약 및 JSON 보기"
+            >
+              Gist Memory ({visibleGistMemory.episodes.length})
+            </button>
+          )}
+          {showGistMemory && currentPlaythrough && (
+            <GistMemoryPanel memory={visibleGistMemory} onClose={() => setShowGistMemory(false)} />
+          )}
           {showOutdatedWarning && outdated && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
