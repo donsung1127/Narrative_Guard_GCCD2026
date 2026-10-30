@@ -51,3 +51,4 @@ data/dramamancer.db
 
 # credentials
 credentials.json
+/.action-observer-backup

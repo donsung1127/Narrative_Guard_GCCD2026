@@ -1,3 +1,4 @@
+import { actionObserver } from '@/lib/action-interpreter/observer.mjs';
 /* eslint-disable react-hooks/exhaustive-deps */
 import { getBlankScene } from '@/app/constants';
 import { DisplayLine, DisplayLineStatus, Playthrough, StoryState } from '@/app/types';
@@ -549,6 +550,23 @@ export function useStoryGenerator({
       const guardScene = getScene(project, currentSceneId);
       const npcCharacters = characters.filter(character =>
         guardScene.characterIds.includes(character.uuid) && character.uuid !== playerCharacter.uuid);
+      // Observation only: run before the guard, without awaiting or altering its decision.
+      // Match the status panel's visible-state source, including its initial-location fallback.
+      if (process.env.NODE_ENV === 'development') {
+        const currentPlace = project.cartridge.places.find(place => place.uuid === guardScene.placeId);
+        const startingPlaceId = getScene(project, project.settings.startingSceneId).placeId;
+        const initialLocation = currentPlace?.name ?? project.cartridge.places.find(place => place.uuid === startingPlaceId)?.name ?? '알 수 없음';
+        const stateLine = [...baseLines].reverse().find(line => line.metadata?.narrativeState);
+        const stateReference = normalizeGameState(stateLine?.metadata?.narrativeState ?? project.settings.initialGameState, initialLocation);
+        void actionObserver.observe(String(currentPlaythrough?.id), {
+          playerInput: input,
+          recentLines: baseLines.filter(line => line.text?.trim()).slice(-12).map(line => ({
+            role: line.type === 'player' ? 'player' as const : line.type === 'character' ? 'npc' as const : 'narration' as const,
+            text: line.text.slice(0, 4000),
+          })),
+          stateReference: {...stateReference},
+        }).catch(() => { /* Observation must never stop the original game flow. */ });
+      }
       const guardResponse = await fetch('/api/gen/story/guard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

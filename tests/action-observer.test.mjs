@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createObserver} from '../lib/action-interpreter/observer.mjs';
+const catalog=[{id:'x',name:'상품',aliases:[]}];
+const input=()=>({playerInput:'상품 하나',recentLines:[],stateReference:{gold:10,inventory:[]}});
+const result={status:'resolved',action:{type:'buy_item',itemId:'x',quantity:1}};
+const response=(body=result,ok=true,status=200)=>({ok,status,json:async()=>body});
+test('default off: makes no request',async()=>{let n=0;const o=createObserver(async()=>{n++;return response()});await o.observe('a',input());assert.equal(n,0)});
+test('captures context without mutating state',async()=>{const i=input();const before=JSON.stringify(i);const o=createObserver(async()=>response());o.configure('a',true,catalog);await o.observe('a',i);assert.equal(JSON.stringify(i),before);assert.deepEqual(o.snapshot('a').records[0].result,result)});
+test('invalid catalog rejected atomically',()=>{const o=createObserver();assert.throws(()=>o.configure('a',true,[]));assert.equal(o.snapshot('a').enabled,false)});
+test('HTTP failure is not an action result',async()=>{const o=createObserver(async()=>response({},false,404));o.configure('a',true,catalog);await o.observe('a',input());assert.equal(o.snapshot('a').records[0].status,'http_error')});
+test('network failure contained',async()=>{const o=createObserver(async()=>{throw Error('offline')});o.configure('a',true,catalog);await o.observe('a',input());assert.equal(o.snapshot('a').records[0].status,'request_error')});
+test('invalid model output rejected again',async()=>{const o=createObserver(async()=>response({status:'resolved',action:{...result.action,itemId:'unknown'}}));o.configure('a',true,catalog);await o.observe('a',input());assert.equal(o.snapshot('a').records[0].status,'invalid_output')});
+test('sessions isolated and disabling works',async()=>{let n=0;const o=createObserver(async()=>{n++;return response()});o.configure('a',true,catalog);await o.observe('b',input());o.disable('a');await o.observe('a',input());assert.equal(n,0)});
+test('clear prevents pending result reappearing',async()=>{let finish;const o=createObserver(()=>new Promise(r=>finish=r));o.configure('a',true,catalog);const pending=o.observe('a',input());o.clear('a');finish(response());await pending;assert.equal(o.snapshot('a').records.length,0)});
+test('records bounded to 30',async()=>{const o=createObserver(async()=>response());o.configure('a',true,catalog);for(let i=0;i<35;i++) await o.observe('a',input());assert.equal(o.snapshot('a').records.length,30)});
+test('oversized input rejected before transport',async()=>{let n=0;const o=createObserver(async()=>{n++;return response()});o.configure('a',true,catalog);await o.observe('a',{...input(),playerInput:'x'.repeat(4001)});assert.equal(n,0);assert.equal(o.snapshot('a').records[0].status,'context_error')});

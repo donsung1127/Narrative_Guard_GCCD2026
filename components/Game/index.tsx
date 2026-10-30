@@ -1,3 +1,4 @@
+import ActionObserverPanel from './ActionObserverPanel';
 import { Character } from '@/app/types';
 import Button from '@/components/Button';
 import {
@@ -108,6 +109,7 @@ export default function Game({ actions }: { actions?: React.ReactNode }) {
         )}
         <div className="relative w-full justify-center">
           {currentPlaythrough && <GameStatusPanel state={visibleGameState} />}
+          {process.env.NODE_ENV === 'development' && currentPlaythrough && <ActionObserverPanel sessionKey={String(currentPlaythrough.id)} />}
           {currentPlaythrough && (
             <button
               type="button"
