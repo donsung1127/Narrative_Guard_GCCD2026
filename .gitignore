@@ -51,3 +51,17 @@ data/dramamancer.db
 
 # credentials
 credentials.json
+
+# Python 가상환경
+venv/
+.venv/
+env/
+
+# Python 캐시 파일 (속도 향상용 임시 파일)
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE / 에디터 설정 파일
+.vscode/
+.idea/
