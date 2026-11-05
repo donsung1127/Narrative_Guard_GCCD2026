@@ -6,9 +6,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
-from dotenv import load_dotenv  # 1. python-dotenv 임포트
+from dotenv import load_dotenv
 
-# .env 파일에서 환경변수를 로드합니다.
+# 1. .env 파일 로드
 load_dotenv()
 
 app = FastAPI(title="Part C Narrative Guard Server")
@@ -23,9 +23,17 @@ app.add_middleware(
 )
 
 # ------------------------------------------------------------
-# 변환 프록시 URL 및 API 키 설정 (Dramamancer 연동 규격)
+# 변환 프록시 URL 및 API 키 설정 (Dramamancer 및 .env 규격 맞춤)
 # ------------------------------------------------------------
-ANTHROPIC_API_URL = os.getenv("ANTHROPIC_API_URL", "https://api.anthropic.com/v1/messages")
+# ANTHROPIC_BASE_URL 또는 ANTHROPIC_API_URL 중 어떤 것이 들어와도 /v1/messages 경로 자동 조립
+base_url = os.getenv("ANTHROPIC_BASE_URL") or os.getenv("ANTHROPIC_API_URL") or "https://api.anthropic.com"
+base_url = base_url.rstrip("/")
+
+if not base_url.endswith("/v1/messages"):
+    ANTHROPIC_API_URL = f"{base_url}/v1/messages"
+else:
+    ANTHROPIC_API_URL = base_url
+
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 # ------------------------------------------------------------
@@ -136,9 +144,8 @@ async def root():
 
 @app.post("/generate-narrative", response_model=NarrativeResponse)
 async def generate_narrative(req: NarrativeRequest):
-    # API 키 확인 디버깅용 로그
     if not ANTHROPIC_API_KEY:
-        print("[오류] ANTHROPIC_API_KEY가 설정되지 않았습니다. .env 파일을 확인해 주세요.")
+        print("[오류] ANTHROPIC_API_KEY가 로드되지 않았습니다. .env 파일을 확인해주세요.")
         return get_fallback_narrative(req)
 
     history_str = "\n".join(req.recent_history)
@@ -153,23 +160,24 @@ async def generate_narrative(req: NarrativeRequest):
         result_reason=req.reason
     )
 
+    # utils.ts 규격과 완벽 통일: x-api-key 사용, Authorization 제거
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {ANTHROPIC_API_KEY}",
-        # x-api-key가 꼭 필요한 게이트웨이라면 아래 주석을 해제하세요.
-         "x-api-key": ANTHROPIC_API_KEY, 
+        "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01"
     }
-   
 
+    # utils.ts 규격과 동일하게 기본 모델을 'claude-sonnet-5'로 설정
     payload = {
-        "model": os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+        "model": os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5"),
         "messages": [
             {"role": "user", "content": user_prompt}
         ],
         "system": SYSTEM_PROMPT,
         "max_tokens": 1000
     }
+
+    print(f"[API 요청 시도] URL: {ANTHROPIC_API_URL}")
 
     try:
         async with httpx.AsyncClient() as httpx_client:
@@ -181,12 +189,12 @@ async def generate_narrative(req: NarrativeRequest):
 
             data = res.json()
             
-            # 응답 텍스트 추출
+            # utils.ts 응답 처리 로직 적용 (thinking 토큰 건너뛰기)
             content_item = data["content"][0] if data["content"][0].get("type") == "text" else data["content"][1]
             raw_response = content_item["text"]
 
     except Exception as e:
-        print(f"[API 오류] Claude Sonnet 호출 실패: {e}")
+        print(f"[API 오류] 호출 중 예외 발생: {e}")
         return get_fallback_narrative(req)
 
     # 가드레일 검증
