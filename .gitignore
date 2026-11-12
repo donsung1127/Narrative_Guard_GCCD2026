@@ -57,3 +57,4 @@ credentials.json
 /.guard-observation-backup
 /.abc-evidence-backup
 /.abc-expanded-backup
+/.open-a-backup

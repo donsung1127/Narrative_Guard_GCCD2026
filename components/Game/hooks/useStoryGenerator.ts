@@ -568,6 +568,30 @@ export function useStoryGenerator({
           stateReference: {...stateReference},
         }).catch(() => { /* Observation must never stop the original game flow. */ });
       }
+      // Optional new A shadow path. Never used as B input; failures cannot block play.
+      if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_OPEN_A_OBSERVE === 'true') {
+        const stateLine = [...baseLines].reverse().find(line => line.metadata?.narrativeState);
+        const location = project.cartridge.places.find(place => place.uuid === guardScene.placeId)?.name ?? '알 수 없음';
+        const state = normalizeGameState(stateLine?.metadata?.narrativeState ?? project.settings.initialGameState, location);
+        // Send the minimal adapter view, not images, sprites or the whole project.
+        void fetch('/api/gen/story/interpret-open', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({source:'dramamancer',input:{
+            project:{settings:{playerId:project.settings.playerId},cartridge:{
+              characters:project.cartridge.characters.map(c=>({uuid:c.uuid,name:c.name})),
+              places:project.cartridge.places.map(p=>({uuid:p.uuid,name:p.name})),
+              scenes:project.cartridge.scenes.map(s=>({uuid:s.uuid,title:s.title,prompt:s.uuid===currentSceneId?s.prompt:undefined})),
+            }},
+            sceneId:currentSceneId,playerInput:input,stateReference:{...state},
+            recentLines:baseLines.filter(l=>l.text?.trim()).slice(-12).map(l=>({role:l.type==='player'?'player':l.type==='character'?'npc':'narration',text:l.text.slice(0,4000)})),
+          }}),
+        }).then(async response=>{
+          const result=await response.json();
+          if(!response.ok){console.warn('[Open A observation]',result);return;}
+          console.info('[Open A observation]',result);
+          window.dispatchEvent(new CustomEvent('open-a-result',{detail:result}));
+        }).catch(()=>{ /* Shadow interpretation never controls execution. */ });
+      }
       // Explicit development-only integration demo. Does not run the legacy guard/trigger pipeline.
       if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_ABC_DEMO === 'true') {
         const stateLine = [...baseLines].reverse().find(line => line.metadata?.narrativeState);
