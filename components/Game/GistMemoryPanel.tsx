@@ -76,10 +76,7 @@ export default function GistMemoryPanel({ memory, onClose }: Props) {
                 <h3 className="font-semibold">{episode.id}</h3>
                 <span className="text-xs text-slate-400">씬: {episode.sceneId || '미지정'} · 원본 대사 {episode.sourceStartLine}–{episode.sourceEndLine}</span>
               </div>
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{episode.summary}</p>
-              {episode.keyEvents.length > 0 && <MemoryList title="핵심 사건" values={episode.keyEvents} />}
-              {episode.relationshipChanges.length > 0 && <MemoryList title="관계 변화" values={episode.relationshipChanges} />}
-              {episode.openThreads.length > 0 && <MemoryList title="미해결 사건" values={episode.openThreads} />}
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-200">{episode.summary}</p>
               <p className="mt-3 text-xs text-slate-500">생성: {new Date(episode.createdAt).toLocaleString()}</p>
             </article>
           ))}
@@ -90,17 +87,6 @@ export default function GistMemoryPanel({ memory, onClose }: Props) {
           </details>
         </div>
       </section>
-    </div>
-  );
-}
-
-function MemoryList({ title, values }: { title: string; values: string[] }) {
-  return (
-    <div className="mt-3">
-      <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400">{title}</h4>
-      <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-200">
-        {values.map((value, index) => <li key={`${index}-${value}`}>{value}</li>)}
-      </ul>
     </div>
   );
 }
